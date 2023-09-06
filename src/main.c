@@ -149,6 +149,7 @@ Z3_ast mk_var(Z3_context ctx, const char *name, Z3_sort ty)
 typedef struct _schedule_input_
 {
     size_t row;
+    /// (min, max) of human resource requirement for every room
     size_t *cols_x, *cols_y;
     size_t cols_len;
     size_t n_people;
@@ -194,15 +195,21 @@ int schedule(const schedule_input input)
     // for each people
     for (size_t i = 0; i < input.n_people; i++)
     {
+        // m = ms[i]
         Z3_ast m = Z3_mk_select(ctx, ms, Z3_mk_int64(ctx, i, int_sort));
         for (size_t r = 0; r < input.row; r++)
         {
+            // row = m[r]
             Z3_ast row = Z3_mk_select(ctx, m, Z3_mk_int64(ctx, r, int_sort));
+
             for (size_t c = 0; c < input.cols_len; c++)
             {
+                // int_row[c] = row[c]
                 int_row[c] = Z3_mk_select(ctx, row, Z3_mk_int64(ctx, c, int_sort));
             }
+            // row_sum = sum(int_row)
             Z3_ast row_sum = Z3_mk_add(ctx, input.cols_len, int_row);
+            // assert(row_sum == 1)
             Z3_solver_assert(ctx, solver, Z3_mk_eq(ctx, row_sum, Z3_mk_int64(ctx, 1, int_sort)));
         }
 
@@ -223,6 +230,7 @@ int schedule(const schedule_input input)
             for (size_t c = 0; c < input.cols_len; c++)
             {
                 Z3_ast v = Z3_mk_select(ctx, row, Z3_mk_int64(ctx, c, int_sort));
+                // assert(v >= 0)
                 Z3_solver_assert(ctx, solver, Z3_mk_ge(ctx, v, Z3_mk_int64(ctx, 0, int_sort)));
             }
         }
@@ -258,7 +266,9 @@ int schedule(const schedule_input input)
                     {
                         Z3_ast l_gt_zero = Z3_mk_gt(
                             ctx,
+                            // ma[r][c]
                             Z3_mk_select(ctx, ma_row, Z3_mk_int64(ctx, c, int_sort)),
+                            // 0
                             Z3_mk_int64(ctx, 0, int_sort));
                         Z3_ast r_gt_zero = Z3_mk_gt(
                             ctx,
